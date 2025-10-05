@@ -3,3 +3,92 @@ title: "Analysis"
 output: html_document
 ---
 
+```{r}
+library(stringr)
+library(lubridate)
+library(dplyr)
+mydata <- read.csv("behavior_group_responses.csv", header = TRUE)
+
+mydata <- mydata %>%
+  rename("Class time preference" = "X1..Which.class.time.would.you.prefer..9.AM..1.PM..or.5.PM....Choose.only.one.")
+
+
+mydata <- mydata %>%
+  rename("Sleeping times" = "X2..What.time.do.you.usually.go.to.sleep...e.g...11.PM.")
+
+
+#fixing up the sleeping times to be consistent
+# MADE A NEW COLUMN CALLED Military_time to make data easier to analyze
+mydata <- mydata %>%
+  mutate(
+    `Sleeping times` = str_replace_all(`Sleeping times`, "[^a-zA-Z0-9: ]", ""),
+    `Sleeping times` = str_trim(`Sleeping times`)
+  ) %>%
+  # Step 2: Extract the hour and apply the conditional PM assumption
+  mutate(
+    # Create a temporary column to hold the extracted hour for the condition
+    hour_check = as.numeric(str_extract(`Sleeping times`, "^\\d+")), 
+    `Sleeping times` = tolower(`Sleeping times`),
+    # Apply the conditional PM assumption
+    `Sleeping times` = case_when(
+      !str_detect(`Sleeping times`, "am|pm") & hour_check > 8 ~ paste0(`Sleeping times`, "pm"),
+      TRUE ~ `Sleeping times`
+    ),
+    
+    # Step 3: Now, remove all spaces and prepare for parsing
+    `Sleeping times` = str_replace_all(`Sleeping times`, " ", "")
+  )%>%
+
+mutate(
+    # Handle the time range '1-2pm'
+    `Sleeping times` = str_replace(`Sleeping times`, "1-2pm", "1:30pm"), 
+    
+    # Parse the time string into a time object
+    parsed_time = parse_date_time(`Sleeping times`, orders = c("H:M p", "H p")),
+    
+    # Convert the time object into a numeric value (hours) on a 0-23 scale
+    Military_time = hour(parsed_time) + minute(parsed_time) / 60
+  ) %>%
+  
+  # Clean up: remove the temporary columns
+  select(-hour_check, -parsed_time)
+```
+
+#### Class time preference alone
+```{r}
+frequency_table <- table(mydata$"Class time preference")
+
+# View the result
+print(frequency_table)
+
+print(mydata$"Class time preference")
+
+# Create a bar chart from the frequency table
+barplot(frequency_table, 
+        main = "Class Time Preference", 
+        xlab = "Time Preference", 
+        ylab = "Number of Students", 
+        col = "skyblue")
+```
+
+#### Class time preference with sleeping time
+```{r}
+sleepdata <- mydata %>%
+  mutate(
+    is_9AM = ifelse(`Class time preference` == "9 AM", 1, 0),
+    is_1PM = ifelse(`Class time preference` == "1 PM", 1, 0)
+  )
+
+# Assuming 'mydata' has a 'Class time preference' column and a 'Military_time' column
+anova_result <- aov(Military_time ~ `Class time preference`, data = sleepdata)
+summary(anova_result)
+
+install.packages("ggplot2")
+library(ggplot2)
+
+# Assuming you have the 'is_9AM' and 'is_1PM' columns
+regression_model <- lm(Military_time ~ is_9AM + is_1PM, data = mydata)
+
+# View the results of the model
+summary(regression_model)
+```
