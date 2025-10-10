@@ -83,12 +83,51 @@ sleepdata <- mydata %>%
 anova_result <- aov(Military_time ~ `Class time preference`, data = sleepdata)
 summary(anova_result)
 
-install.packages("ggplot2")
+#install.packages("ggplot2")
 library(ggplot2)
 
 # Assuming you have the 'is_9AM' and 'is_1PM' columns
-regression_model <- lm(Military_time ~ is_9AM + is_1PM, data = mydata)
+regression_model <- lm(Military_time ~ is_9AM + is_1PM, data = sleepdata)
 
 # View the results of the model
 summary(regression_model)
+
+
+
+
+#### Class time preference with major college
+mydata <- mydata %>%
+  rename("Major College" = "X6..Which.college.s..is.your.major.in.")
+
+
+#Clean up major data
+mydata <- mydata %>%
+  mutate(Primary_College = str_trim(str_extract(`Major College`, "^[^,]+")))
+
+#table
+college_table <- table(mydata$Primary_College, mydata$`Class time preference`)
+print(college_table)
+
+#chi square??
+college_chi_square <- chisq.test(college_table)
+print(college_chi_square)
+
+
+
+#### Class time preference with living situation
+mydata <- mydata %>%
+  rename("Living Situation" = "X5..Where.are.you.living.this.semester.")
+
+#Clean up major data
+mydata <- mydata %>%
+  mutate(Living_Place = str_trim(str_extract(`Living Situation`, "^[^,]+")))
+
+#table
+living_table <- table(mydata$Living_Place, mydata$`Class time preference`)
+print(living_table)
+
+#chi square??
+living_chi_square <- chisq.test(living_table)
+print(living_chi_square)
+
 ```
